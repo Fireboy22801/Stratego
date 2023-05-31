@@ -24,7 +24,7 @@ public class Board : MonoBehaviourPunCallbacks
 
     [SerializeField] private GameObject[] prefabs;
     [SerializeField] private Material enemyMaterial;
-    [SerializeField] private Mesh unknownMesh;
+    [SerializeField] private Mesh enemyMesh;
 
     private PhotonView photonView;
 
@@ -86,7 +86,7 @@ public class Board : MonoBehaviourPunCallbacks
     private void Update()
     {
         Application.targetFrameRate = 60;
-        CheckAllPiecesMesh();
+        //CheckAllPiecesMesh();
         if (!currentCamera)
         {
             currentCamera = Camera.main;
@@ -270,8 +270,8 @@ public class Board : MonoBehaviourPunCallbacks
 
         if (team == 1)
         {
-            piece.GetComponent<MeshFilter>().mesh = unknownMesh;
-            //piece.GetComponent<MeshRenderer>().material = enemyMaterial;
+            piece.GetComponent<MeshFilter>().mesh = enemyMesh;
+            piece.GetComponent<MeshRenderer>().material = enemyMaterial;
         }
 
 
@@ -569,7 +569,11 @@ public class Board : MonoBehaviourPunCallbacks
         x = TILE_COUNT_X - x - 1;
         y = TILE_COUNT_Y - y - 1;
 
-        pieces[x, y].GetComponent<MeshFilter>().mesh = unknownMesh;
+        if (pieces[x, y].Team == 1)
+        {
+            pieces[x, y].GetComponent<MeshFilter>().mesh = enemyMesh;
+            pieces[x, y].GetComponent<MeshRenderer>().material = enemyMaterial;
+        }
     }
 
     [PunRPC]
@@ -590,6 +594,7 @@ public class Board : MonoBehaviourPunCallbacks
     private void ShowPiece(Piece piece)
     {
         piece.GetComponent<MeshFilter>().mesh = prefabs[(int)piece.Type].GetComponent<MeshFilter>().sharedMesh;
+        piece.GetComponent<MeshRenderer>().material = prefabs[(int)piece.Type].GetComponent<MeshRenderer>().sharedMaterial;
     }
 
     private void HidePiece(Piece piece)
@@ -617,7 +622,7 @@ public class Board : MonoBehaviourPunCallbacks
                 }
             }
         }
-        
+
         beforeGame = false;
 
         photonView.RPC("StartGamePhoton", RpcTarget.Others);

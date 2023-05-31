@@ -338,7 +338,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   m_LocalRotation: {x: 0.5, y: 0, z: 0, w: 0.8660254}
-  m_LocalPosition: {x: 0, y: 9.66, z: -6.5}
+  m_LocalPosition: {x: 0, y: 18.103748, z: -11.375}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -461,7 +461,7 @@ MonoBehaviour:
   tileMaterialWhite: {fileID: 2100000, guid: 273b491b8c4837243b0ef5e0f4d1509a, type: 2}
   tileMaterialBlack: {fileID: 2100000, guid: 59a1cb414ebd23846a39653fe084be75, type: 2}
   tileMaterialLake: {fileID: 2100000, guid: 05665b34c3fbfcd4d9e2372e0693f87b, type: 2}
-  tileSize: 1
+  tileSize: 2
   yOffset: 0.01
   boardCenter: {x: 0, y: 0, z: 0}
   deathSize: 0.6
@@ -470,20 +470,20 @@ MonoBehaviour:
   timeToHide: 5
   prefabs:
   - {fileID: 620357562214877401, guid: de5f5df041b0f984ca03b8bcc7ac0c51, type: 3}
-  - {fileID: 4760551082052439204, guid: aea739dec341c1e47b9fc5f2723114f7, type: 3}
-  - {fileID: 3646819158429618393, guid: f4fe3d3659d9c964282fab1f08b386c9, type: 3}
-  - {fileID: 1079685020989722297, guid: 0a1c7112062249f4b938842e9fa76049, type: 3}
-  - {fileID: 869579921230064395, guid: 4fbb84311b7f9cd4dbdae01d4ebed06c, type: 3}
+  - {fileID: 4101942692586101485, guid: 110bacda7ba54694db969930bd3532b4, type: 3}
+  - {fileID: 3990617099910621528, guid: 978f051fb8b44424eb0176df5c0d210a, type: 3}
+  - {fileID: 8173727348246269808, guid: a928381958afea549bf71911e7204b82, type: 3}
+  - {fileID: 8333513728775524122, guid: a540b56204f714f48b160ff49602ad70, type: 3}
   - {fileID: 2383992434212715958, guid: db69a5c33ac5f274ea6e5b9b9ef8e4f7, type: 3}
   - {fileID: 1899062451758576234, guid: 20718e3583b3d3d4bb692a8993b75231, type: 3}
   - {fileID: 869579921230064395, guid: f16869949ff539d44bd514ddab57bfe5, type: 3}
   - {fileID: 869579921230064395, guid: 5b699d84b6c7a7e489dd73525493641d, type: 3}
   - {fileID: 2383992434212715958, guid: 9e2ba4ff49e906d459b9823d5ead6b19, type: 3}
   - {fileID: 1899062451758576234, guid: c4b1fc5f9d8912f469ca23e11753a1e7, type: 3}
-  - {fileID: 4760551082052439204, guid: 4bc89a1a9c558fa40b548e7a7dd817fc, type: 3}
+  - {fileID: 8334384231636443144, guid: b173346f648b6fe419497873c27673f4, type: 3}
   - {fileID: 4760551082052439204, guid: aafc6346237b41f4a9e1ba08e25d3034, type: 3}
   enemyMaterial: {fileID: 2100000, guid: ed4050985b820f742bd133acbde04e82, type: 2}
-  unknownMesh: {fileID: -2432090755550338912, guid: df9336e5252cfbe4c84368255aee4ac4, type: 3}
+  enemyMesh: {fileID: -2432090755550338912, guid: df9336e5252cfbe4c84368255aee4ac4, type: 3}
   availableMoves: []
   beforeGame: 1
   mineTurn: 0
@@ -512,11 +512,11 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1428850495267242949}
-  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

@@ -4,6 +4,11 @@ using UnityEngine;
 
 public class Bomb : Piece
 {
+    public Bomb()
+    {
+        Type = PieceType.Bomb;
+    }
+
     public override List<Vector2Int> GetAvailableMoves(Piece[,] board, int tileCountX, int tileCountY)
     {
         return null;

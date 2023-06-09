@@ -4,4 +4,8 @@ using UnityEngine;
 
 public class Colonel : Piece
 {
+    public Colonel()
+    {
+        Type = PieceType.Colonel;
+    }
 }

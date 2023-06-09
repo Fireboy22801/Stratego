@@ -4,4 +4,8 @@ using UnityEngine;
 
 public class Captain : Piece
 {
+    public Captain()
+    {
+        Type = PieceType.Captain;
+    }
 }

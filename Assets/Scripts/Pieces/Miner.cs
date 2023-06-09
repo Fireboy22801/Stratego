@@ -4,4 +4,8 @@ using UnityEngine;
 
 public class Miner : Piece
 {
-}
+    public Miner()
+    {
+        Type = PieceType.Miner;
+    }
+}   

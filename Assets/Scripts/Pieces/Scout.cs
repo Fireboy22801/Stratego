@@ -4,6 +4,11 @@ using UnityEngine;
 
 public class Scout : Piece
 {
+    public Scout()
+    {
+        Type = PieceType.Scout;
+    }
+
     public override List<Vector2Int> GetAvailableMoves(Piece[,] board, int tileCountX, int tileCountY)
     {
         List<Vector2Int> moves = new List<Vector2Int>();

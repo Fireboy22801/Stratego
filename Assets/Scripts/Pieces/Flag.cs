@@ -4,6 +4,11 @@ using UnityEngine;
 
 public class Flag : Piece
 {
+    public Flag()
+    {
+        Type = PieceType.Flag;
+    }
+
     public override List<Vector2Int> GetAvailableMoves(Piece[,] board, int tileCountX, int tileCountY)
     {
         return null;

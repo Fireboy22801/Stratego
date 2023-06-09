@@ -4,4 +4,8 @@ using UnityEngine;
 
 public class Marshal : Piece
 {
+    public Marshal()
+    {
+        Type = PieceType.Marshal;
+    }
 }

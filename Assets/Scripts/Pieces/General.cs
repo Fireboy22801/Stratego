@@ -4,4 +4,8 @@ using UnityEngine;
 
 public class General : Piece
 {
+    public General()
+    {
+        Type = PieceType.General;
+    }
 }

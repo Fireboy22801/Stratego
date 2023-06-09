@@ -86,7 +86,7 @@ public class Board : MonoBehaviourPunCallbacks
     private void Update()
     {
         Application.targetFrameRate = 60;
-        //CheckAllPiecesMesh();
+
         if (!currentCamera)
         {
             currentCamera = Camera.main;
@@ -457,18 +457,7 @@ public class Board : MonoBehaviourPunCallbacks
 
         return true;
     }
-    private void CheckAllPiecesMesh()
-    {
-        for (int y = 0; y < pieces.GetLength(0); y++)
-        {
-            for (int x = 0; x < pieces.GetLength(1); x++)
-            {
-                if (pieces[x, y] != null)
-                    if (pieces[x, y].Team == 0)
-                        pieces[x, y].GetComponent<MeshFilter>().mesh = prefabs[(int)pieces[x, y].Type].GetComponent<MeshFilter>().sharedMesh;
-            }
-        }
-    }
+
     private Vector2Int LookupTileIndex(GameObject hitInfo)
     {
         for (int y = 0; y < TILE_COUNT_Y; y++)

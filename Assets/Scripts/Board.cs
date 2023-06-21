@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Photon.Pun;
 using System.Collections;
-using UnityEngine.UIElements;
 using Photon.Realtime;
+using TMPro;
 
 public class Board : MonoBehaviourPunCallbacks
 {
@@ -19,12 +19,18 @@ public class Board : MonoBehaviourPunCallbacks
     [SerializeField] private float deathSpacing = 0.3f;
     [SerializeField] private float dragOffset = 1f;
     [SerializeField] private float timeToHide = 3f;
+    [SerializeField] private int timeBeforeStart = 20;
 
     [Header("Prefabs & Materials")]
 
     [SerializeField] private GameObject[] prefabs;
     [SerializeField] private Material enemyMaterial;
     [SerializeField] private Mesh enemyMesh;
+
+    [Header("UI")]
+
+    [SerializeField] private TMP_Text timer;
+
 
     private PhotonView photonView;
 
@@ -80,7 +86,10 @@ public class Board : MonoBehaviourPunCallbacks
         {
             mineTurn = true;
 
-            StartCoroutine(StartGame(10));
+            StartCoroutine(Countdown(timeBeforeStart));
+            photonView.RPC("CountdownPhoton", RpcTarget.Others);
+
+            StartCoroutine(StartGame(timeBeforeStart));
         }
     }
     private void Update()
@@ -272,8 +281,14 @@ public class Board : MonoBehaviourPunCallbacks
         {
             piece.GetComponent<MeshFilter>().mesh = enemyMesh;
             piece.GetComponent<MeshRenderer>().material = enemyMaterial;
-        }
 
+            MeshFilter[] meshFilters = piece.GetComponentsInChildren<MeshFilter>();
+
+            if (meshFilters.Length > 1)
+            {
+                meshFilters[1].GetComponent<MeshRenderer>().enabled = false;
+            }
+        }
 
         return piece;
     }
@@ -372,6 +387,27 @@ public class Board : MonoBehaviourPunCallbacks
 
                 return true;
             }
+            else if (piece.Type == PieceType.Spy && otherPiece.Type == PieceType.Marshal)
+            {
+                AddToDeadList(otherPiece);
+                ShowPiece(piece);
+                ShowPiece(otherPiece);
+
+                HidePiece(piece);
+
+                pieces[x, y] = piece;
+                pieces[previousPosition.x, previousPosition.y] = null;
+
+                PositionSinglePiece(x, y);
+
+                if (!beforeGame)
+                    mineTurn = !mineTurn;
+
+                moveList.Add(previousPosition);
+                moveList.Add(new Vector2Int(x, y));
+
+                return true;
+            }
 
             if (otherPiece.Type == PieceType.Flag)
             {
@@ -403,6 +439,19 @@ public class Board : MonoBehaviourPunCallbacks
                 ShowPiece(otherPiece);
 
                 HidePiece(piece);
+
+                pieces[x, y] = piece;
+                pieces[previousPosition.x, previousPosition.y] = null;
+
+                PositionSinglePiece(x, y);
+
+                if (!beforeGame)
+                    mineTurn = !mineTurn;
+
+                moveList.Add(previousPosition);
+                moveList.Add(new Vector2Int(x, y));
+
+                return true;
             }
             else if (piece.Type < otherPiece.Type)
             {
@@ -536,21 +585,26 @@ public class Board : MonoBehaviourPunCallbacks
     [PunRPC]
     private void StartGamePhoton()
     {
-        beforeGame = false;
-        mineTurn = !mineTurn;
-
-
-        for (int y = 0; y < pieces.GetLength(0) / 2 - 1; y++)
+        if (currentlyDragging != null)
         {
-            for (int x = 0; x < pieces.GetLength(1); x++)
-            {
-                if (pieces[x, y] != null)
-                {
-                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
-                }
-            }
+            Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentX, currentlyDragging.CurrentY);
+
+            MoveToCoordinates(previousPosition.x, previousPosition.y, previousPosition.x, previousPosition.y);
+
+            currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentX, currentlyDragging.CurrentY));
+
+            currentlyDragging = null;
+            RemoveHighlightTiles();
         }
+
+        beforeGame = false;
+
+        mineTurn = false;
+
+        //Wait 5 seconds
+        Invoke("StartGameAfterDelay", 5);
     }
+
 
     [PunRPC]
     private void HidePiecePhoton(int x, int y)
@@ -558,11 +612,27 @@ public class Board : MonoBehaviourPunCallbacks
         x = TILE_COUNT_X - x - 1;
         y = TILE_COUNT_Y - y - 1;
 
-        if (pieces[x, y].Team == 1)
+        if (pieces[x, y] != null)
         {
-            pieces[x, y].GetComponent<MeshFilter>().mesh = enemyMesh;
-            pieces[x, y].GetComponent<MeshRenderer>().material = enemyMaterial;
+            if (pieces[x, y].Team == 1)
+            {
+                pieces[x, y].GetComponent<MeshFilter>().mesh = enemyMesh;
+                pieces[x, y].GetComponent<MeshRenderer>().material = enemyMaterial;
+
+                MeshFilter[] meshFilters = pieces[x, y].GetComponentsInChildren<MeshFilter>();
+
+                if (meshFilters.Length > 1)
+                {
+                    meshFilters[1].GetComponent<MeshRenderer>().enabled = false;
+                }
+            }
         }
+    }
+
+    [PunRPC]
+    private void CountdownPhoton()
+    {
+        StartCoroutine(Countdown(timeBeforeStart));
     }
 
     [PunRPC]
@@ -584,6 +654,13 @@ public class Board : MonoBehaviourPunCallbacks
     {
         piece.GetComponent<MeshFilter>().mesh = prefabs[(int)piece.Type].GetComponent<MeshFilter>().sharedMesh;
         piece.GetComponent<MeshRenderer>().material = prefabs[(int)piece.Type].GetComponent<MeshRenderer>().sharedMaterial;
+
+        MeshFilter[] meshFilters = piece.GetComponentsInChildren<MeshFilter>();
+
+        if (meshFilters.Length > 1)
+        {
+            meshFilters[1].GetComponent<MeshRenderer>().enabled = true;
+        }
     }
 
     private void HidePiece(Piece piece)
@@ -601,6 +678,28 @@ public class Board : MonoBehaviourPunCallbacks
     {
         yield return new WaitForSeconds(delay);
 
+        if (currentlyDragging != null)
+        {
+            Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentX, currentlyDragging.CurrentY);
+
+            MoveToCoordinates(previousPosition.x, previousPosition.y, previousPosition.x, previousPosition.y);
+
+            currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentX, currentlyDragging.CurrentY));
+
+            currentlyDragging = null;
+            RemoveHighlightTiles();
+        }
+
+        photonView.RPC("StartGamePhoton", RpcTarget.Others);
+
+        beforeGame = false;
+
+        mineTurn = false;
+        //Wait 5 seconds
+        yield return new WaitForSeconds(5);
+
+        mineTurn = true;
+
         for (int y = 0; y < pieces.GetLength(0) / 2 - 1; y++)
         {
             for (int x = 0; x < pieces.GetLength(1); x++)
@@ -612,8 +711,30 @@ public class Board : MonoBehaviourPunCallbacks
             }
         }
 
-        beforeGame = false;
+    }
 
-        photonView.RPC("StartGamePhoton", RpcTarget.Others);
+    IEnumerator Countdown(int seconds)
+    {
+        while (seconds > 0)
+        {
+            timer.text = seconds.ToString();
+            yield return new WaitForSeconds(1);
+            seconds--;
+        }
+        timer.text = "0";
+    }
+
+    private void StartGameAfterDelay()
+    {
+        for (int y = 0; y < pieces.GetLength(0) / 2 - 1; y++)
+        {
+            for (int x = 0; x < pieces.GetLength(1); x++)
+            {
+                if (pieces[x, y] != null)
+                {
+                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
+                }
+            }
+        }
     }
 }

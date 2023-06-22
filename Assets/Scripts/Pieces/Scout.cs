@@ -14,60 +14,60 @@ public class Scout : Piece
         List<Vector2Int> moves = new List<Vector2Int>();
 
         //Down
-        for (int i = CurrentY - 1; i >= 0; i--)
+        for (int i = CurrentYIndex - 1; i >= 0; i--)
         {
-            if (board[CurrentX, i] == null)
-                moves.Add(new Vector2Int(CurrentX, i));
+            if (board[CurrentXIndex, i] == null)
+                moves.Add(new Vector2Int(CurrentXIndex, i));
 
             else
             {
-                if (board[CurrentX, i].Team != this.Team && board[CurrentX, i].Type != 0)
-                    moves.Add(new Vector2Int(CurrentX, i));
+                if (board[CurrentXIndex, i].Team != this.Team && board[CurrentXIndex, i].Type != 0)
+                    moves.Add(new Vector2Int(CurrentXIndex, i));
 
                 break;
             }
         }
 
         //Up
-        for (int i = CurrentY + 1; i < tileCountY; i++)
+        for (int i = CurrentYIndex + 1; i < tileCountY; i++)
         {
-            if (board[CurrentX, i] == null)
-                moves.Add(new Vector2Int(CurrentX, i));
+            if (board[CurrentXIndex, i] == null)
+                moves.Add(new Vector2Int(CurrentXIndex, i));
 
             else
             {
-                if (board[CurrentX, i].Team != this.Team && board[CurrentX, i].Type != 0)
-                    moves.Add(new Vector2Int(CurrentX, i));
+                if (board[CurrentXIndex, i].Team != this.Team && board[CurrentXIndex, i].Type != 0)
+                    moves.Add(new Vector2Int(CurrentXIndex, i));
 
                 break;
             }
         }
 
         //Left
-        for (int i = CurrentX - 1; i >= 0; i--)
+        for (int i = CurrentXIndex - 1; i >= 0; i--)
         {
-            if (board[i, CurrentY] == null)
-                moves.Add(new Vector2Int(i, CurrentY));
+            if (board[i, CurrentYIndex] == null)
+                moves.Add(new Vector2Int(i, CurrentYIndex));
 
             else
             {
-                if (board[i, CurrentY].Team != this.Team && board[i, CurrentY].Type != 0)
-                    moves.Add(new Vector2Int(i, CurrentY));
+                if (board[i, CurrentYIndex].Team != this.Team && board[i, CurrentYIndex].Type != 0)
+                    moves.Add(new Vector2Int(i, CurrentYIndex));
 
                 break;
             }
         }
 
         //Right
-        for (int i = CurrentX + 1; i < tileCountX; i++)
+        for (int i = CurrentXIndex + 1; i < tileCountX; i++)
         {
-            if (board[i, CurrentY] == null)
-                moves.Add(new Vector2Int(i, CurrentY));
+            if (board[i, CurrentYIndex] == null)
+                moves.Add(new Vector2Int(i, CurrentYIndex));
 
             else
             {
-                if (board[i, CurrentY].Team != this.Team && board[i, CurrentY].Type != 0)
-                    moves.Add(new Vector2Int(i, CurrentY));
+                if (board[i, CurrentYIndex].Team != this.Team && board[i, CurrentYIndex].Type != 0)
+                    moves.Add(new Vector2Int(i, CurrentYIndex));
 
                 break;
             }

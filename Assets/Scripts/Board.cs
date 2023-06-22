@@ -4,11 +4,14 @@ using Photon.Pun;
 using System.Collections;
 using Photon.Realtime;
 using TMPro;
+using System.Linq;
+using JetBrains.Annotations;
 
 public class Board : MonoBehaviourPunCallbacks
 {
-    [Header("Art stuff")]
+    public static Board Instance;
 
+    [Header("Art stuff")]
     [SerializeField] private Material tileMaterialWhite;
     [SerializeField] private Material tileMaterialBlack;
     [SerializeField] private Material tileMaterialLake;
@@ -27,17 +30,14 @@ public class Board : MonoBehaviourPunCallbacks
     [SerializeField] private Material enemyMaterial;
     [SerializeField] private Mesh enemyMesh;
 
-    [Header("UI")]
+    [SerializeField] public int[] NumberOfPieces = { 1, 8, 5, 4, 4, 4, 3, 2, 1, 1, 6, 1 };
+    private GameUI gameUI;
 
-    [SerializeField] private TMP_Text timer;
-
-
-    private PhotonView photonView;
+    private new PhotonView photonView;
 
     private Piece[,] pieces;
 
     public List<Vector2Int> availableMoves = new List<Vector2Int>();
-    private List<Vector2Int> moveList = new List<Vector2Int>();
 
     private List<Piece> deadWhites = new List<Piece>();
     private List<Piece> deadBlacks = new List<Piece>();
@@ -51,13 +51,13 @@ public class Board : MonoBehaviourPunCallbacks
 
     private GameObject[,] tiles;
 
+    private GameObject selectedPiece;
+
     private Camera currentCamera;
 
     private Vector2Int currentHover;
 
     private Vector3 bounds;
-
-    private Material[] materials;
 
     private int playerCount = 1;
 
@@ -65,17 +65,24 @@ public class Board : MonoBehaviourPunCallbacks
 
     private void Awake()
     {
+        Instance = this;
+
         mineTurn = true;
 
-        GenerateAllTiles(tileSize, TILE_COUNT_X, TILE_COUNT_Y);
+        pieces = new Piece[TILE_COUNT_X, TILE_COUNT_Y];
 
-        SpawnAllPieces();
-        PositionAllPieces();
+        GenerateAllTiles(TILE_COUNT_X, TILE_COUNT_Y);
+
+        Application.targetFrameRate = 60;
     }
 
     private void Start()
     {
         photonView = GetComponent<PhotonView>();
+
+        gameUI = GameUI.Instance;
+        gameUI.scrollbar.SetActive(false);
+
     }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
@@ -87,11 +94,15 @@ public class Board : MonoBehaviourPunCallbacks
             mineTurn = true;
 
             StartCoroutine(Countdown(timeBeforeStart));
+            gameUI.scrollbar.SetActive(true);
+
             photonView.RPC("CountdownPhoton", RpcTarget.Others);
+            photonView.RPC("ShowScrollBar", RpcTarget.Others);
 
             StartCoroutine(StartGame(timeBeforeStart));
         }
     }
+
     private void Update()
     {
         Application.targetFrameRate = 60;
@@ -102,121 +113,173 @@ public class Board : MonoBehaviourPunCallbacks
             return;
         }
 
-        RaycastHit info;
-        Ray ray = currentCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out info, 100, LayerMask.GetMask("Tile", "Hover", "Higlight")))
+        if (beforeGame)
         {
-            Vector2Int hitPosition = LookupTileIndex(info.transform.gameObject);
-
-            if (currentHover == -Vector2Int.one)
-            {
-                currentHover = hitPosition;
-                tiles[hitPosition.x, hitPosition.y].layer = LayerMask.NameToLayer("Hover");
-            }
-
-            if (currentHover != hitPosition)
-            {
-                tiles[currentHover.x, currentHover.y].layer = (ContainsValidMove(ref availableMoves, currentHover)) ? LayerMask.NameToLayer("Higlight") : LayerMask.NameToLayer("Tile");
-                currentHover = hitPosition;
-                tiles[hitPosition.x, hitPosition.y].layer = LayerMask.NameToLayer("Hover");
-            }
-
             if (Input.GetMouseButtonDown(0))
             {
-                if (pieces[hitPosition.x, hitPosition.y] != null)
-                {
-                    if (pieces[hitPosition.x, hitPosition.y].Team == 0 && mineTurn)
-                    {
-                        currentlyDragging = pieces[hitPosition.x, hitPosition.y];
+                RaycastHit hit;
+                Ray ray = currentCamera.ScreenPointToRay(Input.mousePosition);
 
-                        if (beforeGame)
-                            availableMoves = currentlyDragging.UnlockMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
-                        else
+                if (Physics.Raycast(ray, out hit, 100, LayerMask.GetMask("Tile", "Hover", "Highlight")))
+                {
+                    Tile tile = hit.transform.GetComponent<Tile>();
+
+                    if (selectedPiece != null)
+                    {
+                        if (tile.CanCreate(selectedPiece))
                         {
-                            if (currentlyDragging.Type != PieceType.Bomb && currentlyDragging.Type != PieceType.Flag)
-                                availableMoves = currentlyDragging.GetAvailableMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
+                            pieces[tile.IndexInMatrix.x, tile.IndexInMatrix.y] = tile.CreatePiece(selectedPiece);
+                            pieces[tile.IndexInMatrix.x, tile.IndexInMatrix.y].CurrentXIndex = tile.IndexInMatrix.x;
+                            pieces[tile.IndexInMatrix.x, tile.IndexInMatrix.y].CurrentYIndex = tile.IndexInMatrix.y;
                         }
                     }
-                    HighlightTiles();
                 }
-            }
-
-            if (currentlyDragging != null && Input.GetMouseButtonUp(0))
-            {
-                Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentX, currentlyDragging.CurrentY);
-
-                bool validMove = MoveTo(currentlyDragging, hitPosition.x, hitPosition.y);
-                if (!validMove)
-                    currentlyDragging.SetPosition(GetTileCenter(previousPosition.x, previousPosition.y));
-                if (!beforeGame)
-                    MoveToCoordinates(previousPosition.x, previousPosition.y, hitPosition.x, hitPosition.y);
-
-                currentlyDragging = null;
-                RemoveHighlightTiles();
             }
         }
         else
         {
-            if (currentHover != -Vector2Int.one)
+            RaycastHit info;
+            Ray ray = currentCamera.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out info, 100, LayerMask.GetMask("Tile", "Hover", "Highlight")))
             {
-                tiles[currentHover.x, currentHover.y].layer = (ContainsValidMove(ref availableMoves, currentHover)) ? LayerMask.NameToLayer("Higlight") : LayerMask.NameToLayer("Tile");
-                currentHover = -Vector2Int.one;
+                Vector2Int hitPosition = LookupTileIndex(info.transform.gameObject);
+
+                if (currentHover == -Vector2Int.one)
+                {
+                    currentHover = hitPosition;
+                    tiles[hitPosition.x, hitPosition.y].layer = LayerMask.NameToLayer("Hover");
+                }
+
+                if (currentHover != hitPosition)
+                {
+                    tiles[currentHover.x, currentHover.y].layer = (ContainsValidMove(ref availableMoves, currentHover)) ? LayerMask.NameToLayer("Highlight") : LayerMask.NameToLayer("Tile");
+                    currentHover = hitPosition;
+                    tiles[hitPosition.x, hitPosition.y].layer = LayerMask.NameToLayer("Hover");
+                }
+
+                if (Input.GetMouseButtonDown(0))
+                {
+                    if (pieces[hitPosition.x, hitPosition.y] != null)
+                    {
+                        if (pieces[hitPosition.x, hitPosition.y].Team == 0 && mineTurn)
+                        {
+                            currentlyDragging = pieces[hitPosition.x, hitPosition.y];
+
+                            if (currentlyDragging.Type != PieceType.Bomb && currentlyDragging.Type != PieceType.Flag)
+                                availableMoves = currentlyDragging.GetAvailableMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
+                        }
+                        HighlightTiles();
+                    }
+                }
+
+                if (currentlyDragging != null && Input.GetMouseButtonUp(0))
+                {
+                    Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentXIndex, currentlyDragging.CurrentYIndex);
+
+                    bool validMove = MoveTo(currentlyDragging, hitPosition.x, hitPosition.y);
+                    if (!validMove)
+                        currentlyDragging.SetPosition(GetTileCenter(previousPosition.x, previousPosition.y));
+
+                    MoveToCoordinates(previousPosition.x, previousPosition.y, hitPosition.x, hitPosition.y);
+                    currentlyDragging = null;
+                    RemoveHighlightTiles();
+                }
+            }
+            else
+            {
+                if (currentHover != -Vector2Int.one)
+                {
+                    tiles[currentHover.x, currentHover.y].layer = (ContainsValidMove(ref availableMoves, currentHover)) ? LayerMask.NameToLayer("Highlight") : LayerMask.NameToLayer("Tile");
+                    currentHover = -Vector2Int.one;
+                }
+
+                if (currentlyDragging && Input.GetMouseButtonUp(0))
+                {
+                    currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentXIndex, currentlyDragging.CurrentYIndex));
+                    currentlyDragging = null;
+                    RemoveHighlightTiles();
+                }
             }
 
-            if (currentlyDragging && Input.GetMouseButtonUp(0))
+            if (currentlyDragging)
             {
-                currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentX, currentlyDragging.CurrentY));
-                currentlyDragging = null;
-                RemoveHighlightTiles();
+                Plane horizontalPlane = new Plane(Vector3.up, Vector3.up * yOffset);
+                float distance;
+                if (horizontalPlane.Raycast(ray, out distance))
+                    currentlyDragging.SetPosition(ray.GetPoint(distance) + Vector3.up * dragOffset);
             }
-        }
-
-        if (currentlyDragging)
-        {
-            Plane horizontalPlane = new Plane(Vector3.up, Vector3.up * yOffset);
-            float distance;
-            if (horizontalPlane.Raycast(ray, out distance))
-                currentlyDragging.SetPosition(ray.GetPoint(distance) + Vector3.up * dragOffset);
         }
     }
 
-    private void GenerateAllTiles(float tileSize, int tileCountX, int tileCountY)
+    private void GenerateAllTiles(int tileCountX, int tileCountY)
     {
         yOffset += transform.position.y;
-        bounds = new Vector3((tileCountX / 2) * tileSize, 0, (tileCountX / 2) * tileSize) + boardCenter;
+        bounds = new Vector3((tileCountX / 2) * tileSize, 0, (tileCountY / 2) * tileSize) + boardCenter;
 
         tiles = new GameObject[tileCountX, tileCountY];
+
         for (int y = 0; y < tileCountY; y++)
+        {
+            for (int x = 0; x < tileCountX; x++)
+            {
+
+                if (x == 2 && y == 4 || x == 2 && y == 5 || x == 3 && y == 4 || x == 3 && y == 5
+                    || x == 6 && y == 4 || x == 6 && y == 5 || x == 7 && y == 4 || x == 7 && y == 5)
+                {
+                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Lake"), tileMaterialLake);
+                    pieces[x, y] = SpawnSinglePiece(PieceType.Lake, 2);
+                    PositionSinglePiece(x, y, true);
+                }
+
+                else if ((x + y) % 2 == 0)
+                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Tile"), tileMaterialWhite);
+
+                else
+                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Tile"), tileMaterialBlack);
+            }
+        }
+
+        if (beforeGame)
+            ChangeTilesLayer(tileCountX, tileCountY, LayerMask.NameToLayer("Unavailable"));
+    }
+
+    private void ChangeTilesLayer(int tileCountX, int tileCountY, LayerMask layer)
+    {
+        for (int y = tileCountY / 2 - 1; y < tileCountY; y++)
         {
             for (int x = 0; x < tileCountX; x++)
             {
                 if (x == 2 && y == 4 || x == 2 && y == 5 || x == 3 && y == 4 || x == 3 && y == 5
                     || x == 6 && y == 4 || x == 6 && y == 5 || x == 7 && y == 4 || x == 7 && y == 5)
                 {
-                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Lake"), tileMaterialLake);
+                    continue;
                 }
-                else if ((x + y) % 2 == 0)
-                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Tile"), tileMaterialWhite);
                 else
-                    tiles[x, y] = GenerateSingleTile(tileSize, x, y, LayerMask.NameToLayer("Tile"), tileMaterialBlack);
-
+                    ChangeTileLayer(x, y, layer);
             }
         }
     }
+
+    private void ChangeTileLayer(int x, int y, LayerMask layer)
+    {
+        tiles[x, y].layer = layer;
+    }
+
     private GameObject GenerateSingleTile(float tileSize, int x, int y, LayerMask layer, Material material)
     {
         GameObject tileObject = new GameObject(string.Format("X:{0}, Y:{1}", x, y));
         tileObject.transform.parent = transform;
+        tileObject.transform.localPosition = new Vector3(x * tileSize, yOffset, y * tileSize) - bounds;
 
         Mesh mesh = new Mesh();
         tileObject.AddComponent<MeshFilter>().mesh = mesh;
         tileObject.AddComponent<MeshRenderer>().material = material;
 
         Vector3[] vertices = new Vector3[4];
-        vertices[0] = new Vector3(x * tileSize, yOffset, y * tileSize) - bounds;
-        vertices[1] = new Vector3(x * tileSize, yOffset, (y + 1) * tileSize) - bounds;
-        vertices[2] = new Vector3((x + 1) * tileSize, yOffset, y * tileSize) - bounds;
-        vertices[3] = new Vector3((x + 1) * tileSize, yOffset, (y + 1) * tileSize) - bounds;
+        vertices[0] = new Vector3(0, 0, 0);
+        vertices[1] = new Vector3(0, 0, tileSize);
+        vertices[2] = new Vector3(tileSize, 0, 0);
+        vertices[3] = new Vector3(tileSize, 0, tileSize);
 
         int[] tris = new int[] { 0, 1, 2, 1, 3, 2 };
 
@@ -227,46 +290,9 @@ public class Board : MonoBehaviourPunCallbacks
         tileObject.layer = layer;
         tileObject.AddComponent<BoxCollider>();
 
+        tileObject.AddComponent<Tile>().IndexInMatrix = new Vector2Int(x, y);
+
         return tileObject;
-    }
-
-    private void SpawnAllPieces()
-    {
-        pieces = new Piece[TILE_COUNT_X, TILE_COUNT_Y];
-
-        int whiteTeam = 0;
-
-        //White
-
-        pieces[0, 0] = SpawnSinglePiece(PieceType.Spy, whiteTeam);
-        pieces[1, 0] = SpawnSinglePiece(PieceType.Scout, whiteTeam);
-        pieces[2, 0] = SpawnSinglePiece(PieceType.Miner, whiteTeam);
-        pieces[3, 0] = SpawnSinglePiece(PieceType.Sergeant, whiteTeam);
-        pieces[4, 0] = SpawnSinglePiece(PieceType.Lieutenant, whiteTeam);
-        pieces[5, 0] = SpawnSinglePiece(PieceType.Captain, whiteTeam);
-        pieces[6, 0] = SpawnSinglePiece(PieceType.Major, whiteTeam);
-        pieces[7, 0] = SpawnSinglePiece(PieceType.Colonel, whiteTeam);
-        pieces[8, 0] = SpawnSinglePiece(PieceType.General, whiteTeam);
-        pieces[9, 0] = SpawnSinglePiece(PieceType.Marshal, whiteTeam);
-
-        for (int i = 0; i < TILE_COUNT_Y; i++)
-        {
-            pieces[i, 1] = SpawnSinglePiece(PieceType.Spy, whiteTeam);
-        }
-
-        pieces[4, 2] = SpawnSinglePiece(PieceType.Bomb, whiteTeam);
-        pieces[4, 3] = SpawnSinglePiece(PieceType.Flag, whiteTeam);
-
-        //Lake
-        pieces[2, 4] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[3, 4] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[2, 5] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[3, 5] = SpawnSinglePiece(PieceType.Lake, 2);
-
-        pieces[6, 4] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[6, 5] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[7, 4] = SpawnSinglePiece(PieceType.Lake, 2);
-        pieces[7, 5] = SpawnSinglePiece(PieceType.Lake, 2);
     }
 
     private Piece SpawnSinglePiece(PieceType type, int team)
@@ -274,6 +300,7 @@ public class Board : MonoBehaviourPunCallbacks
         Piece piece;
 
         piece = Instantiate(prefabs[(int)type], transform).GetComponent<Piece>();
+
         piece.Type = type;
         piece.Team = team;
 
@@ -293,19 +320,34 @@ public class Board : MonoBehaviourPunCallbacks
         return piece;
     }
 
-    private void PositionAllPieces()
-    {
-        for (int x = 0; x < TILE_COUNT_X; x++)
-            for (int y = 0; y < TILE_COUNT_Y; y++)
-                if (pieces[x, y] != null)
-                    PositionSinglePiece(x, y, true);
-    }
 
     private void PositionSinglePiece(int x, int y, bool force = false)
     {
-        pieces[x, y].CurrentX = x;
-        pieces[x, y].CurrentY = y;
+        pieces[x, y].CurrentXIndex = x;
+        pieces[x, y].CurrentYIndex = y;
         pieces[x, y].SetPosition(GetTileCenter(x, y), force);
+    }
+
+    private void PositionPiecesInRandomPlaces()
+    {
+        for (int i = 0; i < NumberOfPieces.Length; i++)
+        {
+            while (NumberOfPieces[i] != 0)
+            {
+                int x;
+                int y;
+
+                x = Random.Range(0, TILE_COUNT_X);
+                y = Random.Range(0, TILE_COUNT_Y / 2 - 1);
+
+                if (pieces[x, y] == null)
+                {
+                    pieces[x, y] = SpawnSinglePiece((PieceType)(i + 1), 0);
+                    PositionSinglePiece(x, y, true);
+                    NumberOfPieces[i]--;
+                }
+            }
+        }
     }
 
     private Vector3 GetTileCenter(int x, int y)
@@ -316,7 +358,7 @@ public class Board : MonoBehaviourPunCallbacks
     private void HighlightTiles()
     {
         for (int i = 0; i < availableMoves.Count; i++)
-            tiles[availableMoves[i].x, availableMoves[i].y].layer = LayerMask.NameToLayer("Higlight");
+            tiles[availableMoves[i].x, availableMoves[i].y].layer = LayerMask.NameToLayer("Highlight");
     }
     private void RemoveHighlightTiles()
     {
@@ -339,7 +381,7 @@ public class Board : MonoBehaviourPunCallbacks
         if (!ContainsValidMove(ref availableMoves, new Vector2Int(x, y)))
             return false;
 
-        Vector2Int previousPosition = new Vector2Int(piece.CurrentX, piece.CurrentY);
+        Vector2Int previousPosition = new Vector2Int(piece.CurrentXIndex, piece.CurrentYIndex);
 
         if (pieces[x, y] != null)
         {
@@ -361,9 +403,6 @@ public class Board : MonoBehaviourPunCallbacks
                 if (!beforeGame)
                     mineTurn = !mineTurn;
 
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
-
                 return true;
             }
             else if (piece.Type == PieceType.Miner && otherPiece.Type == PieceType.Bomb)
@@ -381,9 +420,6 @@ public class Board : MonoBehaviourPunCallbacks
 
                 if (!beforeGame)
                     mineTurn = !mineTurn;
-
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
 
                 return true;
             }
@@ -403,9 +439,6 @@ public class Board : MonoBehaviourPunCallbacks
                 if (!beforeGame)
                     mineTurn = !mineTurn;
 
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
-
                 return true;
             }
 
@@ -424,9 +457,6 @@ public class Board : MonoBehaviourPunCallbacks
                     mineTurn = !mineTurn;
 
                 GameOver();
-
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
 
                 return true;
             }
@@ -448,9 +478,6 @@ public class Board : MonoBehaviourPunCallbacks
                 if (!beforeGame)
                     mineTurn = !mineTurn;
 
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
-
                 return true;
             }
             else if (piece.Type < otherPiece.Type)
@@ -466,9 +493,6 @@ public class Board : MonoBehaviourPunCallbacks
 
                 if (!beforeGame)
                     mineTurn = !mineTurn;
-
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
 
                 return true;
             }
@@ -486,9 +510,6 @@ public class Board : MonoBehaviourPunCallbacks
                 if (!beforeGame)
                     mineTurn = !mineTurn;
 
-                moveList.Add(previousPosition);
-                moveList.Add(new Vector2Int(x, y));
-
                 return true;
             }
         }
@@ -500,9 +521,6 @@ public class Board : MonoBehaviourPunCallbacks
 
         if (!beforeGame)
             mineTurn = !mineTurn;
-
-        moveList.Add(previousPosition);
-        moveList.Add(new Vector2Int(x, y));
 
         return true;
     }
@@ -562,13 +580,9 @@ public class Board : MonoBehaviourPunCallbacks
 
         if (pieces[x, y] != null)
         {
-            if (beforeGame)
-                availableMoves = pieces[x, y].UnlockMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
-            else
-            {
-                if (pieces[x, y].Type != PieceType.Bomb && pieces[x, y].Type != PieceType.Flag)
-                    availableMoves = pieces[x, y].GetAvailableMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
-            }
+            if (pieces[x, y].Type != PieceType.Bomb && pieces[x, y].Type != PieceType.Flag)
+                availableMoves = pieces[x, y].GetAvailableMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
+
             MoveTo(pieces[x, y], finalX, finalY);
 
             RemoveHighlightTiles();
@@ -585,21 +599,15 @@ public class Board : MonoBehaviourPunCallbacks
     [PunRPC]
     private void StartGamePhoton()
     {
-        if (currentlyDragging != null)
-        {
-            Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentX, currentlyDragging.CurrentY);
+        PositionPiecesInRandomPlaces();
 
-            MoveToCoordinates(previousPosition.x, previousPosition.y, previousPosition.x, previousPosition.y);
-
-            currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentX, currentlyDragging.CurrentY));
-
-            currentlyDragging = null;
-            RemoveHighlightTiles();
-        }
+        gameUI.scrollbar.SetActive(false);
 
         beforeGame = false;
 
         mineTurn = false;
+
+        StartCoroutine(Countdown(5));
 
         //Wait 5 seconds
         Invoke("StartGameAfterDelay", 5);
@@ -633,6 +641,12 @@ public class Board : MonoBehaviourPunCallbacks
     private void CountdownPhoton()
     {
         StartCoroutine(Countdown(timeBeforeStart));
+    }
+
+    [PunRPC]
+    private void ShowScrollBar()
+    {
+        gameUI.scrollbar.SetActive(true);
     }
 
     [PunRPC]
@@ -671,32 +685,26 @@ public class Board : MonoBehaviourPunCallbacks
     IEnumerator HidePieceDelayed(Piece piece)
     {
         yield return new WaitForSeconds(timeToHide);
-        photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentX, piece.CurrentY);
+        photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
     }
 
     IEnumerator StartGame(int delay)
     {
         yield return new WaitForSeconds(delay);
 
-        if (currentlyDragging != null)
-        {
-            Vector2Int previousPosition = new Vector2Int(currentlyDragging.CurrentX, currentlyDragging.CurrentY);
+        ChangeTilesLayer(TILE_COUNT_X, TILE_COUNT_Y, LayerMask.NameToLayer("Tile"));
 
-            MoveToCoordinates(previousPosition.x, previousPosition.y, previousPosition.x, previousPosition.y);
+        gameUI.scrollbar.SetActive(false);
 
-            currentlyDragging.SetPosition(GetTileCenter(currentlyDragging.CurrentX, currentlyDragging.CurrentY));
-
-            currentlyDragging = null;
-            RemoveHighlightTiles();
-        }
+        PositionPiecesInRandomPlaces();
 
         photonView.RPC("StartGamePhoton", RpcTarget.Others);
 
         beforeGame = false;
 
         mineTurn = false;
-        //Wait 5 seconds
-        yield return new WaitForSeconds(5);
+
+        StartCoroutine(Countdown(5));
 
         mineTurn = true;
 
@@ -717,11 +725,11 @@ public class Board : MonoBehaviourPunCallbacks
     {
         while (seconds > 0)
         {
-            timer.text = seconds.ToString();
+            gameUI.timer.text = seconds.ToString();
             yield return new WaitForSeconds(1);
             seconds--;
         }
-        timer.text = "0";
+        gameUI.timer.text = "0";
     }
 
     private void StartGameAfterDelay()
@@ -736,5 +744,60 @@ public class Board : MonoBehaviourPunCallbacks
                 }
             }
         }
+    }
+
+    public void SelectSpy()
+    {
+        SelectPiece(prefabs[1]);
+    }
+    public void SelectScout()
+    {
+        SelectPiece(prefabs[2]);
+    }
+    public void SelectMiner()
+    {
+        SelectPiece(prefabs[3]);
+    }
+    public void SelectSergeant()
+    {
+        SelectPiece(prefabs[4]);
+    }
+    public void SelectLieutenant()
+    {
+        SelectPiece(prefabs[5]);
+    }
+    public void SelectCaptain()
+    {
+        SelectPiece(prefabs[6]);
+    }
+    public void SelectMajor()
+    {
+        SelectPiece(prefabs[7]);
+    }
+    public void SelectColonel()
+    {
+        SelectPiece(prefabs[8]);
+    }
+    public void SelectGeneral()
+    {
+        SelectPiece(prefabs[9]);
+    }
+    public void SelectMarshal()
+    {
+        SelectPiece(prefabs[10]);
+    }
+    public void SelectBomb()
+    {
+        SelectPiece(prefabs[11]);
+    }
+    public void SelectFlag()
+    {
+        SelectPiece(prefabs[12]);
+    }
+
+
+    private void SelectPiece(GameObject piece)
+    {
+        selectedPiece = piece;
     }
 }

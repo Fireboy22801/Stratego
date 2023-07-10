@@ -30,9 +30,15 @@ public class Tile : MonoBehaviour
                     Tile tile = hit.transform.GetComponent<Tile>();
                     if (tile != null && tile.hasPiece)
                     {
-                        board.NumberOfPieces[(int)tile.currentPiece.GetComponent<Piece>().Type - 1]++;
-                        gameUI.ChangePieceNumber((int)tile.currentPiece.GetComponent<Piece>().Type - 1, board.NumberOfPieces[(int)tile.currentPiece.GetComponent<Piece>().Type - 1]);
+                        int pieceIndex = (int)tile.currentPiece.GetComponent<Piece>().Type - 1;
+
+                        board.NumberOfPieces[pieceIndex]++;
+                        gameUI.ChangePieceNumber(pieceIndex, 1);
+
+                        gameUI.ChangeTextColor(pieceIndex, Color.green);
+
                         Destroy(tile.currentPiece);
+
                         tile.hasPiece = false;
                         tile.currentPiece = null;
                     }
@@ -50,10 +56,15 @@ public class Tile : MonoBehaviour
 
     public Piece CreatePiece(GameObject piece)
     {
+        int pieceIndex = (int)piece.GetComponent<Piece>().Type - 1;
+
         if (!hasPiece)
         {
-            if (board.NumberOfPieces[(int)piece.GetComponent<Piece>().Type - 1] > 0)
-                board.NumberOfPieces[(int)piece.GetComponent<Piece>().Type - 1]--;
+            if (board.NumberOfPieces[pieceIndex] > 0)
+            {
+                board.NumberOfPieces[pieceIndex]--;
+                gameUI.ChangePieceNumber(pieceIndex, -1);
+            }
             else
                 return null;
 
@@ -61,7 +72,10 @@ public class Tile : MonoBehaviour
             hasPiece = true;
         }
 
-        gameUI.ChangePieceNumber((int)piece.GetComponent<Piece>().Type - 1, board.NumberOfPieces[(int)piece.GetComponent<Piece>().Type - 1]);
+        if (board.NumberOfPieces[pieceIndex] <= 0)
+            gameUI.ChangeTextColor(pieceIndex, Color.red);
+        else
+            gameUI.ChangeTextColor(pieceIndex, Color.green);
 
         return currentPiece.GetComponent<Piece>();
     }

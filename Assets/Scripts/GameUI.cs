@@ -44,8 +44,16 @@ public class GameUI : MonoBehaviour
         menuAnimator.SetTrigger("OnlineMenu");
     }
 
-    public void ChangePieceNumber(int pieceIndex, int newPieceNumber)
+    public void ChangePieceNumber(int pieceIndex, int Value)
     {
-        buttons[pieceIndex].GetComponentInChildren<TMP_Text>().text = newPieceNumber.ToString();
+        int currentText = int.Parse(buttons[pieceIndex].GetComponentInChildren<TMP_Text>().text);
+        int newText = currentText + Value;
+        buttons[pieceIndex].GetComponentInChildren<TMP_Text>().text = newText.ToString();
+    }
+
+
+    public void ChangeTextColor(int pieceIndex, Color newColor)
+    {
+        buttons[pieceIndex].GetComponentInChildren<TMP_Text>().color = newColor;
     }
 }

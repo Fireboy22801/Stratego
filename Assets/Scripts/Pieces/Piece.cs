@@ -51,7 +51,7 @@ public class Piece : MonoBehaviour
         List<Vector2Int> moves = new List<Vector2Int>();
 
         //Right
-        if (CurrentXIndex + 1 <= tileCountX)
+        if (CurrentXIndex + 1 < tileCountX)
         {
             if (board[CurrentXIndex + 1, CurrentYIndex] == null)
                 moves.Add(new Vector2Int(CurrentXIndex + 1, CurrentYIndex));

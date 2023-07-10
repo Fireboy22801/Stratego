@@ -97,7 +97,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Team: 0
-  CurrentX: 0
-  CurrentY: 0
+  CurrentXIndex: 0
+  CurrentYIndex: 0
   Type: 10
   speed: 10

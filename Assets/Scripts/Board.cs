@@ -3,9 +3,6 @@ using UnityEngine;
 using Photon.Pun;
 using System.Collections;
 using Photon.Realtime;
-using TMPro;
-using System.Linq;
-using JetBrains.Annotations;
 
 public class Board : MonoBehaviourPunCallbacks
 {
@@ -21,8 +18,7 @@ public class Board : MonoBehaviourPunCallbacks
     [SerializeField] private float deathSize = 0.3f;
     [SerializeField] private float deathSpacing = 0.3f;
     [SerializeField] private float dragOffset = 1f;
-    [SerializeField] private float timeToHide = 3f;
-    [SerializeField] private int timeBeforeStart = 20;
+    [SerializeField] private int timeToHide = 3;
 
     [Header("Prefabs & Materials")]
 
@@ -30,38 +26,36 @@ public class Board : MonoBehaviourPunCallbacks
     [SerializeField] private Material enemyMaterial;
     [SerializeField] private Mesh enemyMesh;
 
-    [SerializeField] public int[] NumberOfPieces = { 1, 8, 5, 4, 4, 4, 3, 2, 1, 1, 6, 1 };
-    private GameUI gameUI;
-
-    private new PhotonView photonView;
-
-    private Piece[,] pieces;
-
-    public List<Vector2Int> availableMoves = new List<Vector2Int>();
-
-    private List<Piece> deadWhites = new List<Piece>();
-    private List<Piece> deadBlacks = new List<Piece>();
-
-    private Piece currentlyDragging;
+    public int[] NumberOfPieces = { 1, 8, 5, 4, 4, 4, 3, 2, 1, 1, 6, 1 };
 
     public bool beforeGame = true;
+    public bool mineTurn;
+    public bool test;
+
+    public List<Vector2Int> availableMoves = new List<Vector2Int>();
 
     private const int TILE_COUNT_X = 10;
     private const int TILE_COUNT_Y = 10;
 
-    private GameObject[,] tiles;
+    private GameUI gameUI;
 
+    private new PhotonView photonView;
+
+    private List<Piece> deadWhites = new List<Piece>();
+    private List<Piece> deadBlacks = new List<Piece>();
+
+    private Piece[,] pieces;
+    private Piece currentlyDragging;
+
+    private GameObject[,] tiles;
     private GameObject selectedPiece;
 
     private Camera currentCamera;
 
+    private Vector3 bounds;
     private Vector2Int currentHover;
 
-    private Vector3 bounds;
-
     private int playerCount = 1;
-
-    public bool mineTurn;
 
     private void Awake()
     {
@@ -83,23 +77,33 @@ public class Board : MonoBehaviourPunCallbacks
         gameUI = GameUI.Instance;
         gameUI.scrollbar.SetActive(false);
 
+        if (test)
+        {
+            mineTurn = true;
+            gameUI.scrollbar.SetActive(true);
+
+            StartCoroutine(CountdownText(timeToHide));
+            Invoke("StartGame", timeToHide);
+        }
     }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
-        Debug.Log("Player Entered");
         playerCount++;
         if (playerCount == 2)
         {
             mineTurn = true;
 
-            StartCoroutine(Countdown(timeBeforeStart));
             gameUI.scrollbar.SetActive(true);
 
-            photonView.RPC("CountdownPhoton", RpcTarget.Others);
+            StartCoroutine(CountdownText(timeToHide));
+            Invoke("StartGame", timeToHide);
+
             photonView.RPC("ShowScrollBar", RpcTarget.Others);
 
-            StartCoroutine(StartGame(timeBeforeStart));
+            photonView.RPC("CountdownPhoton", RpcTarget.Others, timeToHide);
+            photonView.RPC("StartGamePhoton", RpcTarget.Others, timeToHide);
+
         }
     }
 
@@ -179,8 +183,8 @@ public class Board : MonoBehaviourPunCallbacks
                     bool validMove = MoveTo(currentlyDragging, hitPosition.x, hitPosition.y);
                     if (!validMove)
                         currentlyDragging.SetPosition(GetTileCenter(previousPosition.x, previousPosition.y));
-
-                    MoveToCoordinates(previousPosition.x, previousPosition.y, hitPosition.x, hitPosition.y);
+                    if (!test)
+                        photonView.RPC("MovePhoton", RpcTarget.Others, previousPosition.x, previousPosition.y, hitPosition.x, hitPosition.y);
                     currentlyDragging = null;
                     RemoveHighlightTiles();
                 }
@@ -560,14 +564,10 @@ public class Board : MonoBehaviourPunCallbacks
         }
     }
 
-    public void MoveToCoordinates(int x, int y, int finalX, int finalY)
-    {
-        photonView.RPC("MovePhoton", RpcTarget.Others, x, y, finalX, finalY);
-    }
-
+    [PunRPC]
     public void ChangeTurn()
     {
-        photonView.RPC("ChangeTurnPhoton", RpcTarget.Others);
+        mineTurn = !mineTurn;
     }
 
     [PunRPC]
@@ -591,26 +591,9 @@ public class Board : MonoBehaviourPunCallbacks
     }
 
     [PunRPC]
-    private void ChangeTurnPhoton()
+    private void StartGamePhoton(int delay)
     {
-        mineTurn = !mineTurn;
-    }
-
-    [PunRPC]
-    private void StartGamePhoton()
-    {
-        PositionPiecesInRandomPlaces();
-
-        gameUI.scrollbar.SetActive(false);
-
-        beforeGame = false;
-
-        mineTurn = false;
-
-        StartCoroutine(Countdown(5));
-
-        //Wait 5 seconds
-        Invoke("StartGameAfterDelay", 5);
+        Invoke("StartGame", delay);
     }
 
 
@@ -638,9 +621,9 @@ public class Board : MonoBehaviourPunCallbacks
     }
 
     [PunRPC]
-    private void CountdownPhoton()
+    private void CountdownPhoton(int delay)
     {
-        StartCoroutine(Countdown(timeBeforeStart));
+        StartCoroutine(CountdownText(delay));
     }
 
     [PunRPC]
@@ -685,43 +668,28 @@ public class Board : MonoBehaviourPunCallbacks
     IEnumerator HidePieceDelayed(Piece piece)
     {
         yield return new WaitForSeconds(timeToHide);
-        photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
+        if (!test)
+            photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
     }
 
-    IEnumerator StartGame(int delay)
+    private void StartGame()
     {
-        yield return new WaitForSeconds(delay);
-
         ChangeTilesLayer(TILE_COUNT_X, TILE_COUNT_Y, LayerMask.NameToLayer("Tile"));
 
         gameUI.scrollbar.SetActive(false);
 
         PositionPiecesInRandomPlaces();
 
-        photonView.RPC("StartGamePhoton", RpcTarget.Others);
-
         beforeGame = false;
 
         mineTurn = false;
 
-        StartCoroutine(Countdown(5));
+        ShowAllEnemyPieces();
 
-        mineTurn = true;
-
-        for (int y = 0; y < pieces.GetLength(0) / 2 - 1; y++)
-        {
-            for (int x = 0; x < pieces.GetLength(1); x++)
-            {
-                if (pieces[x, y] != null)
-                {
-                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
-                }
-            }
-        }
-
+        photonView.RPC("ChangeTurn", RpcTarget.Others);
     }
 
-    IEnumerator Countdown(int seconds)
+    IEnumerator CountdownText(int seconds)
     {
         while (seconds > 0)
         {
@@ -729,10 +697,10 @@ public class Board : MonoBehaviourPunCallbacks
             yield return new WaitForSeconds(1);
             seconds--;
         }
-        gameUI.timer.text = "0";
+        gameUI.timer.text = "";
     }
 
-    private void StartGameAfterDelay()
+    private void ShowAllEnemyPieces()
     {
         for (int y = 0; y < pieces.GetLength(0) / 2 - 1; y++)
         {
@@ -740,7 +708,8 @@ public class Board : MonoBehaviourPunCallbacks
             {
                 if (pieces[x, y] != null)
                 {
-                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
+                    if (!test)
+                        photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
                 }
             }
         }
@@ -794,7 +763,6 @@ public class Board : MonoBehaviourPunCallbacks
     {
         SelectPiece(prefabs[12]);
     }
-
 
     private void SelectPiece(GameObject piece)
     {

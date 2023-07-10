@@ -63,6 +63,8 @@ public class Board : MonoBehaviourPunCallbacks
 
     public bool mineTurn;
 
+    public bool test;
+
     private void Awake()
     {
         Instance = this;
@@ -82,6 +84,15 @@ public class Board : MonoBehaviourPunCallbacks
 
         gameUI = GameUI.Instance;
         gameUI.scrollbar.SetActive(false);
+
+        if (test)
+        {
+            mineTurn = true;
+
+            StartCoroutine(Countdown(timeBeforeStart));
+            gameUI.scrollbar.SetActive(true);
+            StartCoroutine(StartGame(timeBeforeStart));
+        }
 
     }
 
@@ -562,12 +573,14 @@ public class Board : MonoBehaviourPunCallbacks
 
     public void MoveToCoordinates(int x, int y, int finalX, int finalY)
     {
-        photonView.RPC("MovePhoton", RpcTarget.Others, x, y, finalX, finalY);
+        if (!test)
+            photonView.RPC("MovePhoton", RpcTarget.Others, x, y, finalX, finalY);
     }
 
     public void ChangeTurn()
     {
-        photonView.RPC("ChangeTurnPhoton", RpcTarget.Others);
+        if (!test)
+            photonView.RPC("ChangeTurnPhoton", RpcTarget.Others);
     }
 
     [PunRPC]
@@ -607,7 +620,7 @@ public class Board : MonoBehaviourPunCallbacks
 
         mineTurn = false;
 
-        StartCoroutine(Countdown(5));
+        StartCoroutine(Countdown(timeBeforeStart));
 
         //Wait 5 seconds
         Invoke("StartGameAfterDelay", 5);
@@ -685,7 +698,8 @@ public class Board : MonoBehaviourPunCallbacks
     IEnumerator HidePieceDelayed(Piece piece)
     {
         yield return new WaitForSeconds(timeToHide);
-        photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
+        if (!test)
+            photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
     }
 
     IEnumerator StartGame(int delay)
@@ -698,13 +712,14 @@ public class Board : MonoBehaviourPunCallbacks
 
         PositionPiecesInRandomPlaces();
 
-        photonView.RPC("StartGamePhoton", RpcTarget.Others);
+        if (!test)
+            photonView.RPC("StartGamePhoton", RpcTarget.Others);
 
         beforeGame = false;
 
         mineTurn = false;
 
-        StartCoroutine(Countdown(5));
+        StartCoroutine(Countdown(timeBeforeStart));
 
         mineTurn = true;
 
@@ -714,7 +729,8 @@ public class Board : MonoBehaviourPunCallbacks
             {
                 if (pieces[x, y] != null)
                 {
-                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
+                    if (!test)
+                        photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
                 }
             }
         }
@@ -740,7 +756,8 @@ public class Board : MonoBehaviourPunCallbacks
             {
                 if (pieces[x, y] != null)
                 {
-                    photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
+                    if (!test)
+                        photonView.RPC("PlaceEnemyPhoton", RpcTarget.Others, x, y, (int)pieces[x, y].Type);
                 }
             }
         }

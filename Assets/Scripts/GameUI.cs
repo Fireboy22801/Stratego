@@ -1,3 +1,4 @@
+using Photon.Pun;
 using System;
 using TMPro;
 using UnityEngine;
@@ -18,6 +19,7 @@ public class GameUI : MonoBehaviour
 
         Application.targetFrameRate = 60;
     }
+
 
     public void OnLocalGameButton()
     {

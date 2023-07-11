@@ -1,8 +1,8 @@
+using Photon.Pun;
+using Photon.Realtime;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Photon.Pun;
-using System.Collections;
-using Photon.Realtime;
 
 public class Board : MonoBehaviourPunCallbacks
 {
@@ -18,7 +18,8 @@ public class Board : MonoBehaviourPunCallbacks
     [SerializeField] private float deathSize = 0.3f;
     [SerializeField] private float deathSpacing = 0.3f;
     [SerializeField] private float dragOffset = 1f;
-    [SerializeField] private int timeToHide = 3;
+    [SerializeField] private int timeToStart = 3;
+    [SerializeField] private int timeToHidePiece = 3;
 
     [Header("Prefabs & Materials")]
 
@@ -82,8 +83,8 @@ public class Board : MonoBehaviourPunCallbacks
             mineTurn = true;
             gameUI.scrollbar.SetActive(true);
 
-            StartCoroutine(CountdownText(timeToHide));
-            Invoke("StartGame", timeToHide);
+            StartCoroutine(CountdownText(timeToStart));
+            Invoke("StartGame", timeToStart);
         }
     }
 
@@ -96,13 +97,13 @@ public class Board : MonoBehaviourPunCallbacks
 
             gameUI.scrollbar.SetActive(true);
 
-            StartCoroutine(CountdownText(timeToHide));
-            Invoke("StartGame", timeToHide);
+            StartCoroutine(CountdownText(timeToStart));
+            Invoke("StartGame", timeToStart);
 
             photonView.RPC("ShowScrollBar", RpcTarget.Others);
 
-            photonView.RPC("CountdownPhoton", RpcTarget.Others, timeToHide);
-            photonView.RPC("StartGamePhoton", RpcTarget.Others, timeToHide);
+            photonView.RPC("CountdownPhoton", RpcTarget.Others, timeToStart);
+            photonView.RPC("StartGamePhoton", RpcTarget.Others, timeToStart);
 
         }
     }
@@ -396,59 +397,59 @@ public class Board : MonoBehaviourPunCallbacks
 
             if (piece.Type != PieceType.Miner && otherPiece.Type == PieceType.Bomb)
             {
-                pieces[previousPosition.x, previousPosition.y] = null;
-
-                AddToDeadList(piece);
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
 
-                HidePiece(otherPiece);
+                pieces[previousPosition.x, previousPosition.y].SetPosition(GetTileCenter(x, y));
+                pieces[previousPosition.x, previousPosition.y] = null;
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(piece));
+
+                mineTurn = !mineTurn;
+
+                StartCoroutine(HidePiece(otherPiece));
 
                 return true;
             }
             else if (piece.Type == PieceType.Miner && otherPiece.Type == PieceType.Bomb)
             {
-                AddToDeadList(otherPiece);
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
-
-                HidePiece(piece);
 
                 pieces[x, y] = piece;
                 pieces[previousPosition.x, previousPosition.y] = null;
 
                 PositionSinglePiece(x, y);
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(otherPiece));
+
+                mineTurn = !mineTurn;
+
+                StartCoroutine(HidePiece(piece));
 
                 return true;
             }
             else if (piece.Type == PieceType.Spy && otherPiece.Type == PieceType.Marshal)
             {
-                AddToDeadList(otherPiece);
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
-
-                HidePiece(piece);
 
                 pieces[x, y] = piece;
                 pieces[previousPosition.x, previousPosition.y] = null;
 
                 PositionSinglePiece(x, y);
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(otherPiece));
+
+                mineTurn = !mineTurn;
+
+                StartCoroutine(HidePiece(piece));
 
                 return true;
             }
 
             if (otherPiece.Type == PieceType.Flag)
             {
-                AddToDeadList(otherPiece);
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
 
@@ -457,8 +458,9 @@ public class Board : MonoBehaviourPunCallbacks
 
                 PositionSinglePiece(x, y);
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(otherPiece));
+
+                mineTurn = !mineTurn;
 
                 GameOver();
 
@@ -467,36 +469,35 @@ public class Board : MonoBehaviourPunCallbacks
 
             if (piece.Type > otherPiece.Type)
             {
-                AddToDeadList(otherPiece);
-
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
-
-                HidePiece(piece);
 
                 pieces[x, y] = piece;
                 pieces[previousPosition.x, previousPosition.y] = null;
 
                 PositionSinglePiece(x, y);
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(otherPiece));
+
+                mineTurn = !mineTurn;
+
+                StartCoroutine(HidePiece(piece));
 
                 return true;
             }
             else if (piece.Type < otherPiece.Type)
             {
-                pieces[previousPosition.x, previousPosition.y] = null;
-
-                AddToDeadList(piece);
-
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
 
-                HidePiece(otherPiece);
+                pieces[previousPosition.x, previousPosition.y].SetPosition(GetTileCenter(x, y));
+                pieces[previousPosition.x, previousPosition.y] = null;
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(piece, true));
+
+                mineTurn = !mineTurn;
+
+                StartCoroutine(HidePiece(otherPiece));
 
                 return true;
             }
@@ -505,14 +506,14 @@ public class Board : MonoBehaviourPunCallbacks
                 ShowPiece(piece);
                 ShowPiece(otherPiece);
 
-                AddToDeadList(otherPiece);
-                AddToDeadList(piece);
-
-                pieces[x, y] = null;
+                pieces[previousPosition.x, previousPosition.y].SetPosition(GetTileCenter(x, y));
                 pieces[previousPosition.x, previousPosition.y] = null;
+                pieces[x, y] = null;
 
-                if (!beforeGame)
-                    mineTurn = !mineTurn;
+                StartCoroutine(AddToDeadList(piece));
+                StartCoroutine(AddToDeadList(otherPiece));
+
+                mineTurn = !mineTurn;
 
                 return true;
             }
@@ -523,8 +524,7 @@ public class Board : MonoBehaviourPunCallbacks
 
         PositionSinglePiece(x, y);
 
-        if (!beforeGame)
-            mineTurn = !mineTurn;
+        mineTurn = !mineTurn;
 
         return true;
     }
@@ -538,8 +538,13 @@ public class Board : MonoBehaviourPunCallbacks
         return -Vector2Int.one;
     }
 
-    private void AddToDeadList(Piece piece)
+    IEnumerator AddToDeadList(Piece piece, bool force = false)
     {
+        if (force)
+            yield return new WaitUntil(() => piece.GetDistance() < tileSize);
+        else
+            yield return new WaitUntil(() => piece.transform.position == piece.desiredPosition);
+
         if (piece.Team == 0)
         {
             deadWhites.Add(piece);
@@ -584,7 +589,6 @@ public class Board : MonoBehaviourPunCallbacks
                 availableMoves = pieces[x, y].GetAvailableMoves(pieces, TILE_COUNT_X, TILE_COUNT_Y);
 
             MoveTo(pieces[x, y], finalX, finalY);
-
             RemoveHighlightTiles();
         }
 
@@ -660,14 +664,9 @@ public class Board : MonoBehaviourPunCallbacks
         }
     }
 
-    private void HidePiece(Piece piece)
+    IEnumerator HidePiece(Piece piece)
     {
-        StartCoroutine(HidePieceDelayed(piece));
-    }
-
-    IEnumerator HidePieceDelayed(Piece piece)
-    {
-        yield return new WaitForSeconds(timeToHide);
+        yield return new WaitUntil(() => mineTurn);
         if (!test)
             photonView.RPC("HidePiecePhoton", RpcTarget.Others, piece.CurrentXIndex, piece.CurrentYIndex);
     }
@@ -686,7 +685,8 @@ public class Board : MonoBehaviourPunCallbacks
 
         ShowAllEnemyPieces();
 
-        photonView.RPC("ChangeTurn", RpcTarget.Others);
+        if (!test)
+            photonView.RPC("ChangeTurn", RpcTarget.Others);
     }
 
     IEnumerator CountdownText(int seconds)

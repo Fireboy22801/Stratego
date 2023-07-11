@@ -30,9 +30,9 @@ public class Piece : MonoBehaviour
 
     public PieceType Type;
 
-    public int speed = 2;
+    private int speed = 7;
 
-    private Vector3 desiredPosition;
+    public Vector3 desiredPosition;
     private Vector3 desiredScale = Vector3.one;
 
     private void Start()
@@ -97,6 +97,11 @@ public class Piece : MonoBehaviour
         desiredPosition = position;
         if (force)
             transform.position = desiredPosition;
+    }
+
+    public virtual float GetDistance()
+    {
+        return Vector3.Distance(transform.position, desiredPosition);
     }
 
     public virtual void SetScale(Vector3 scale, bool force = false)

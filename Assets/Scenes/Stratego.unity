@@ -2687,8 +2687,8 @@ MonoBehaviour:
   deathSize: 0.6
   deathSpacing: 1
   dragOffset: 0.8
-  timeToHide: 3
-  timeBeforeStart: 20
+  timeToStart: 3
+  timeToHidePiece: 5
   prefabs:
   - {fileID: 620357562214877401, guid: de5f5df041b0f984ca03b8bcc7ac0c51, type: 3}
   - {fileID: 4101942692586101485, guid: 110bacda7ba54694db969930bd3532b4, type: 3}
@@ -2706,10 +2706,10 @@ MonoBehaviour:
   enemyMaterial: {fileID: 2100000, guid: ed4050985b820f742bd133acbde04e82, type: 2}
   enemyMesh: {fileID: -2432090755550338912, guid: df9336e5252cfbe4c84368255aee4ac4, type: 3}
   NumberOfPieces: 010000000800000005000000040000000400000004000000030000000200000001000000010000000600000001000000
-  availableMoves: []
   beforeGame: 1
   mineTurn: 0
   test: 0
+  availableMoves: []
 --- !u!1 &1247942857
 GameObject:
   m_ObjectHideFlags: 0
